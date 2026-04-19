@@ -1,3 +1,4 @@
-public enum RoomType{
+public enum RoomType
+{
     SINGLE,DOUBLE,DELUXE
 }

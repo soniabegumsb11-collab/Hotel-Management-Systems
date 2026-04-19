@@ -1,145 +1,141 @@
-
-import javax.swing.JFrame;
-import javax.swing.JButton;
-import javax.swing.JLabel;
-import javax.swing.JTextField;
-import javax.swing.JComboBox;
-import javax.swing.JTable;
-import javax.swing.JScrollPane;
-import javax.swing.JPanel;
-import javax.swing.JOptionPane;
-
+import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
-
-import java.awt.Color;
-import java.awt.Font;
-import java.awt.GridLayout;
-
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-
-import java.util.ArrayList;
+import java.awt.*;
 
 public class CustomerForm extends JFrame {
 
-    private JTextField txtId, txtName;
+    private CustomTextField txtId, txtName;
     private JComboBox<Gender> cmbGender;
     private JTable table;
     private DefaultTableModel model;
+    
+    private HotelFacade facade;
 
-    private ArrayList<Customer> customerList = new ArrayList<>();
+    public CustomerForm(HotelFacade facade) {
+        this.facade = facade;
 
-    public CustomerForm() {
-
-        setTitle("Customer Form");
-        setSize(600,400);
+        setTitle("AURORA HAVEN | Guest Directory");
+        setSize(850, 650);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 
-        JPanel panel = new JPanel(new GridLayout(5,2,5,5));
-        panel.setBackground(Color.WHITE);
+        JPanel mainPanel = new JPanel(new BorderLayout(25, 25));
+        UITheme.stylePanel(mainPanel);
+        mainPanel.setBorder(BorderFactory.createEmptyBorder(30, 40, 30, 40));
 
-        JLabel title = new JLabel("Customer Information");
-        title.setFont(new Font("Arial", Font.BOLD, 18));
-        title.setForeground( Color.BLACK);
+        // Rounded Form Card
+        RoundedPanel formCard = new RoundedPanel(25);
+        formCard.setBackground(Color.WHITE);
+        formCard.setLayout(new BorderLayout(15, 25));
+        formCard.setBorder(BorderFactory.createEmptyBorder(25, 30, 25, 30));
 
-        panel.add(title);
-        panel.add(new JLabel(""));
+        JLabel title = new JLabel("Guest Information");
+        UITheme.styleTitle(title);
+        formCard.add(title, BorderLayout.NORTH);
 
-        panel.add(new JLabel("Customer ID:"));
-        txtId = new JTextField();
-        panel.add(txtId);
+        // Input Grid
+        JPanel inputGrid = new JPanel(new GridLayout(3, 2, 15, 20));
+        inputGrid.setOpaque(false);
 
-        panel.add(new JLabel("Customer Name:"));
-        txtName = new JTextField();
-        panel.add(txtName);
+        JLabel lblId = new JLabel("Guest ID:");
+        UITheme.styleLabel(lblId);
+        txtId = new CustomTextField();
 
-        panel.add(new JLabel("Gender:"));
+        JLabel lblName = new JLabel("Guest Name:");
+        UITheme.styleLabel(lblName);
+        txtName = new CustomTextField();
+
+        JLabel lblGender = new JLabel("Gender:");
+        UITheme.styleLabel(lblGender);
         cmbGender = new JComboBox<>(Gender.values());
-        panel.add(cmbGender);
+        cmbGender.setFont(UITheme.FONT_BODY);
+        cmbGender.setBackground(Color.WHITE);
 
-        JButton btnSave = new JButton("Save");
-        JButton btnDelete = new JButton("Delete");
+        inputGrid.add(lblId);
+        inputGrid.add(txtId);
+        inputGrid.add(lblName);
+        inputGrid.add(txtName);
+        inputGrid.add(lblGender);
+        inputGrid.add(cmbGender);
 
-        btnSave.setBackground(Color.GRAY);
-        btnSave.setForeground(Color.WHITE);
+        // Wrapper to prevent vertical stretching
+        JPanel centerWrapper = new JPanel(new BorderLayout());
+        centerWrapper.setOpaque(false);
+        centerWrapper.add(inputGrid, BorderLayout.NORTH);
+        formCard.add(centerWrapper, BorderLayout.CENTER);
 
-        btnDelete.setBackground(Color.GRAY);
-        btnDelete.setForeground(Color.WHITE);
+        // Buttons
+        JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
+        actionPanel.setOpaque(false);
+        
+        RoundedButton btnSave = new RoundedButton("Save Guest");
+        RoundedButton btnDelete = new RoundedButton("Remove");
+        RoundedButton btnRefresh = new RoundedButton("Refresh");
+        
+        btnDelete.setColor(new Color(180, 80, 80));
+        btnDelete.setColorOver(new Color(200, 100, 100));
 
-        panel.add(btnSave);
-        panel.add(btnDelete);
+        actionPanel.add(btnRefresh);
+        actionPanel.add(btnDelete);
+        actionPanel.add(btnSave);
+        formCard.add(actionPanel, BorderLayout.SOUTH);
 
-        model = new DefaultTableModel(
-                new String[]{"ID","Name","Gender"},0);
+        // Table Area
+        model = new DefaultTableModel(new String[]{"ID", "Guest Name", "Gender"}, 0);
         table = new JTable(model);
+        JScrollPane scrollPane = new JScrollPane(table);
+        UITheme.styleTable(table, scrollPane);
 
-        add(panel,"North");
-        add(new JScrollPane(table),"Center");
+        mainPanel.add(formCard, BorderLayout.NORTH);
+        mainPanel.add(scrollPane, BorderLayout.CENTER);
 
-        load();
+        add(mainPanel);
+        refresh();
 
         btnSave.addActionListener(e -> saveCustomer());
         btnDelete.addActionListener(e -> deleteCustomer());
+        btnRefresh.addActionListener(e -> refresh());
 
         setVisible(true);
     }
 
     private void saveCustomer() {
-        Customer c = new Customer(
-                Integer.parseInt(txtId.getText()),
-                txtName.getText(),
-                (Gender)cmbGender.getSelectedItem()
-        );
-        customerList.add(c);
-        save();
-        refresh();
+        try {
+            int id = Integer.parseInt(txtId.getText());
+            String name = txtName.getText();
+            Gender gender = (Gender) cmbGender.getSelectedItem();
+
+            Customer newCustomer = HotelFactory.createCustomer(id, name, gender);
+            facade.addCustomer(newCustomer);
+            
+            refresh();
+            txtId.setText("");
+            txtName.setText("");
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, "Please enter a valid numeric ID.");
+        }
     }
 
     private void deleteCustomer() {
         int row = table.getSelectedRow();
-        if(row >= 0){
-            customerList.remove(row);
-            save();
+        if (row >= 0) {
+            facade.deleteCustomer(row);
             refresh();
         } else {
-            JOptionPane.showMessageDialog(this,"Select a row first");
+            JOptionPane.showMessageDialog(this, "Select a record first");
         }
     }
 
     private void refresh() {
         model.setRowCount(0);
-        for(Customer c : customerList){
+        Iterator<Customer> iterator = facade.getCustomers();
+        while (iterator.hasNext()) {
+            Customer c = iterator.next();
             model.addRow(new Object[]{
                     c.getCustomerId(),
                     c.getName(),
                     c.getGender()
             });
-        }
-    }
-
-    private void save() {
-        try {
-            ObjectOutputStream oos =
-                    new ObjectOutputStream(new FileOutputStream("customers.dat"));
-            oos.writeObject(customerList);
-            oos.close();
-        } catch(Exception e){
-            e.printStackTrace();
-        }
-    }
-
-    private void load() {
-        try {
-            ObjectInputStream ois =
-                    new ObjectInputStream(new FileInputStream("customers.dat"));
-            customerList = (ArrayList<Customer>) ois.readObject();
-            ois.close();
-            refresh();
-        } catch(Exception e){
-            customerList = new ArrayList<>();
         }
     }
 }
